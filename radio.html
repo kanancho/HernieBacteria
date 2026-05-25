@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consola de Radio AM/FM Vintage</title>
+    <style>
+        body { margin: 0; background: #121216; color: #e2e2d9; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; padding: 20px; box-sizing: border-box; }
+        .panel { background: #1c1c22; border: 2px solid #323242; padding: 25px; border-radius: 8px; width: 100%; max-width: 460px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); box-sizing: border-box; }
+        h1 { text-align: center; color: #ff9f43; font-size: 18px; letter-spacing: 2px; margin-top: 0; text-transform: uppercase; border-bottom: 2px double #323242; padding-bottom: 12px; }
+        
+        .control-group { margin: 18px 0; background: #25252e; padding: 12px; border-radius: 6px; border: 1px solid #2d2d3a; }
+        label { display: block; font-size: 11px; text-transform: uppercase; margin-bottom: 8px; color: #a0a0b0; font-weight: bold; }
+        
+        /* Selectores e Inputs */
+        select { width: 100%; background: #141419; color: #fff; border: 1px solid #444; padding: 10px; font-family: inherit; font-size: 13px; border-radius: 4px; outline: none; }
+        input[type="range"] { width: 100%; accent-color: #ff9f43; background: #141419; height: 6px; border-radius: 3px; outline: none; }
+        
+        /* Switch de siseo */
+        .switch-container { display: flex; align-items: center; justify-content: space-between; }
+        .switch-label { font-size: 12px; text-transform: uppercase; color: #a0a0b0; font-weight: bold; }
+        
+        .status { text-align: center; background: #0d0d12; padding: 12px; border-radius: 4px; font-size: 12px; color: #00ffcc; border: 1px solid #25252e; margin: 15px 0; min-height: 18px; font-weight: bold; letter-spacing: 1px; }
+        .buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+        button { width: 100%; padding: 14px; font-family: inherit; font-size: 13px; font-weight: bold; text-transform: uppercase; border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s; letter-spacing: 1px; }
+        
+        .btn-init { background: #00bcd4; color: #fff; }
+        .btn-rec { background: #ff3b30; color: #fff; }
+        .btn-stop { background: #4caf50; color: #fff; }
+        button:disabled { background: #2d2d3a; color: #555; cursor: not-allowed; }
+        .note { font-size: 10px; color: #686878; text-align: center; margin-top: 15px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+    <div class="panel">
+        <h1>Estación de Efectos de Radio</h1>
+        
+        <div class="status" id="status-text">CONSOLA APAGADA. INICIALIZA EL MICRÓFONO.</div>
+
+        <div class="control-group">
+            <label for="quality-select">Calidad de Frecuencia</label>
+            <select id="quality-select" onchange="updateAudioParameters()">
+                <option value="am">Radio AM Estándar (Filtro cerrado y rústico)</option>
+                <option value="fm">Radio FM / Reportero (Mayor nitidez y cuerpo)</option>
+            </select>
+        </div>
+
+        <div class="control-group switch-container">
+            <span class="switch-label">Siseo Analógico (Hiss)</span>
+            <select id="hiss-toggle" style="width: auto; padding: 5px 10px;" onchange="updateAudioParameters()">
+                <option value="on">ENCENDIDO</option>
+                <option value="off">APAGADO</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="hiss-volume">Volumen del Siseo activo</label>
+            <input type="range" id="hiss-volume" min="0" max="0.07" step="0.005" value="0.025" oninput="updateAudioParameters()">
+        </div>
+
+        <div class="control-group">
+            <label for="fade-depth">Fading (Pérdida de señal por distancia)</label>
+            <input type="range" id="fade-depth" min="0" max="0.5" step="0.05" value="0.20" oninput="updateAudioParameters()">
+        </div>
+
+        <div class="buttons">
+            <button class="btn-init" id="init-btn" onclick="setupAudioEngine()">1. Encender Transmisor</button>
+            <button class="btn-rec" id="rec-btn" onclick="startRecording()" disabled>2. Grabar Cinta</button>
+            <button class="btn-stop" id="stop-btn" onclick="stopRecording()" disabled>3. Procesar y Descargar</button>
+        </div>
+
+        <div class="note">⚠️ RECORDATORIO: Es mandatorio usar audífonos para evitar el acople técnico (feedback) entre el micrófono y los parlantes.</div>
+    </div>
+
+    <script>
+        let audioCtx;
+        let mediaRecorder;
+        let recordedChunks = [];
+        let localStream;
+        
+        // Nodos de Audio Globales
+        let hpFilter, lpFilter, distortion, noiseGainNode, faderGainNode;
+
+        function makeDistortionCurve(amount) {
+            let k = typeof amount === 'number' ? amount : 50,
+                n_samples = 44100,
+                curve = new Float32Array(n_samples),
+                deg = Math.PI / 180,
+                x;
+            for (let i = 0; i < n_samples; ++i) {
+                x = (i * 2) / n_samples - 1;
+                curve[i] = ((3 + k) * x * 15 * deg) / (Math.PI + k * Math.abs(x));
+            }
+            return curve;
+        }
+
+        async function setupAudioEngine() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+                });
+
+                const source = audioCtx.createMediaStreamSource(localStream);
+
+                // Configuración de Filtros
+                hpFilter = audioCtx.createBiquadFilter();
+                hpFilter.type = "highpass";
+
+                lpFilter = audioCtx.createBiquadFilter();
+                lpFilter.type = "lowpass";
+
+                distortion = audioCtx.createWaveShaper();
+                distortion.oversample = '4x';
+
+                // Generador de Ruido Estático
+                const bufferSize = 2 * audioCtx.sampleRate;
+                const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const output = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+                const whiteNoise = audioCtx.createBufferSource();
+                whiteNoise.buffer = noiseBuffer;
+                whiteNoise.loop = true;
+
+                noiseGainNode = audioCtx.createGain();
+                whiteNoise.start();
+
+                // Modulador de Fading (Distancia)
+                const mainGain = audioCtx.createGain();
+                mainGain.gain.value = 0.7;
+
+                const faderLFO = audioCtx.createOscillator();
+                faderLFO.type = 'sine';
+                faderLFO.frequency.value = 0.15; // Ciclo lento de desvanecimiento
+
+                faderGainNode = audioCtx.createGain();
+                faderLFO.connect(faderGainNode);
+                faderGainNode.connect(mainGain.gain);
+                faderLFO.start();
+
+                // Conexiones de la línea de procesamiento
+                source.connect(hpFilter);
+                hpFilter.connect(lpFilter);
+                lpFilter.connect(distortion);
+                distortion.connect(mainGain);
+
+                whiteNoise.connect(noiseGainNode);
+                noiseGainNode.connect(mainGain);
+
+                const dest = audioCtx.createMediaStreamDestination();
+                mainGain.connect(dest);
+                mainGain.connect(audioCtx.destination);
+
+                // Aplicar parámetros según la UI actual
+                updateAudioParameters();
+
+                mediaRecorder = new MediaRecorder(dest.stream);
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+                mediaRecorder.onstop = saveAudioFile;
+
+                document.getElementById('init-btn').disabled = true;
+                document.getElementById('rec-btn').disabled = false;
+                document.getElementById('status-text').innerText = "TRANSMISOR SEGURO. SEÑAL LISTA.";
+                document.getElementById('status-text').style.color = "#ff9f43";
+
+            } catch (err) {
+                alert("Imposible enlazar la consola: Activa los accesos al micrófono.");
+                console.error(err);
+            }
+        }
+
+        // Aplica cambios en tiempo real sin cortar la grabación
+        function updateAudioParameters() {
+            if (!audioCtx) return;
+
+            const quality = document.getElementById('quality-select').value;
+            const hissToggle = document.getElementById('hiss-toggle').value;
+            const hissVol = parseFloat(document.getElementById('hiss-volume').value);
+            const fadeDepth = parseFloat(document.getElementById('fade-depth').value);
+
+            // Ajuste dinámico de calidad de frecuencia
+            if (quality === 'am') {
+                hpFilter.frequency.setValueAtTime(450, audioCtx.currentTime);  // Recorte severo de bajos
+                lpFilter.frequency.setValueAtTime(2200, audioCtx.currentTime); // Recorte severo de agudos
+                distortion.curve = makeDistortionCurve(30);                   // Crujido áspero
+            } else if (quality === 'fm') {
+                hpFilter.frequency.setValueAtTime(120, audioCtx.currentTime);  // Pasa más cuerpo de voz
+                lpFilter.frequency.setValueAtTime(7500, audioCtx.currentTime); // Pasa mayor claridad y consonantes
+                distortion.curve = makeDistortionCurve(4);                    // Calidez sutil de bulbo
+            }
+
+            // Ajuste dinámico del siseo analógico
+            if (hissToggle === 'on') {
+                noiseGainNode.gain.setValueAtTime(hissVol, audioCtx.currentTime);
+            } else {
+                noiseGainNode.gain.setValueAtTime(0, audioCtx.currentTime); // Silencio absoluto de estática
+            }
+
+            // Ajuste del desvanecimiento por distancia
+            if (faderGainNode) {
+                faderGainNode.gain.setValueAtTime(fadeDepth, audioCtx.currentTime);
+            }
+        }
+
+        function startRecording() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            recordedChunks = [];
+            mediaRecorder.start();
+            
+            document.getElementById('rec-btn').disabled = true;
+            document.getElementById('stop-btn').disabled = false;
+            document.getElementById('status-text').innerText = "🔴 GRABANDO EN CINTA MAGNÉTICA...";
+            document.getElementById('status-text').style.color = "#ff3b30";
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            document.getElementById('rec-btn').disabled = false;
+            document.getElementById('stop-btn').disabled = true;
+            document.getElementById('status-text').innerText = "TRANSMISIÓN CORTADA. DESCARGANDO ARCHIVO...";
+            document.getElementById('status-text').style.color = "#00ffcc";
+        }
+
+        function saveAudioFile() {
+            const blob = new Blob(recordedChunks, { type: "audio/mp3" });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `Cinta_Radio_${new Date().getTime()}.mp3`;
+            document.body.appendChild(a);
+            a.click();
+            
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+        }
+    </script>
+</body>
+</html>
