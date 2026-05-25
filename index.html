@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hernie Bacteria | Central de Transmisión</title>
+    <style>
+        /* Estética Noir: Alto contraste, negros puros y grises de prensa */
+        body { margin: 0; background: #0a0a0c; color: #d1d1d6; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 30px 15px; box-sizing: border-box; }
+        
+        .hub-container { width: 100%; max-width: 600px; background: #121216; border: 1px solid #2c2c35; padding: 30px; border-radius: 4px; box-shadow: 0 15px 35px rgba(0,0,0,0.8); box-sizing: border-box; }
+        
+        /* Cabecera del Personaje */
+        header { text-align: center; border-bottom: 2px double #2c2c35; padding-bottom: 20px; margin-bottom: 25px; }
+        h1 { margin: 0; font-size: 24px; color: #ffffff; letter-spacing: 3px; text-transform: uppercase; }
+        .subtitle { font-size: 12px; color: #8a8a93; margin-top: 5px; font-style: italic; letter-spacing: 1px; }
+        
+        /* Lista de Aplicaciones / Herramientas */
+        .apps-list { display: flex; flex-direction: column; gap: 18px; }
+        
+        .app-card { display: block; text-decoration: none; background: #181820; border: 1px solid #22222a; padding: 18px; border-radius: 4px; transition: all 0.2s ease; }
+        .app-card:hover { border-color: #ffffff; background: #1c1c26; transform: translateY(-2px); }
+        
+        .app-title { font-size: 16px; font-weight: bold; color: #ff9f43; margin-bottom: 6px; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between; }
+        .app-title::after { content: "→"; font-size: 18px; color: #8a8a93; }
+        .app-card:hover .app-title::after { color: #ffffff; }
+        
+        .app-desc { font-size: 13px; color: #a1a1aa; line-height: 1.5; margin: 0; }
+        
+        /* Pie de página cronológico */
+        footer { margin-top: 40px; font-size: 11px; color: #52525b; text-align: center; border-top: 1px dashed #2c2c35; width: 100%; padding-top: 15px; }
+    </style>
+</head>
+<body>
+
+    <div class="hub-container">
+        <header>
+            <h1>Hernie Bacteria</h1>
+            <div class="subtitle">Despacho de Señales e Historias Subterráneas</div>
+        </header>
+
+        <nav class="apps-list">
+            <a href="vhs.html" class="app-card">
+                <div class="app-title">1. Grabación VHS Noir</div>
+                <p class="app-desc">Captura video analógico en blanco y negro contrastado o color magnético gastado. Integra distorsión de cinta y procesamiento de audio Onda Media.</p>
+            </a>
+
+            <a href="radio.html" class="app-card">
+                <div class="app-title">2. Consola Radio AM/FM</div>
+                <p class="app-desc">Modulador de audio en tiempo real. Filtra la voz para emular el espectro de la radio AM clásica, siseo de estática y desvanecimiento por distancia.</p>
+            </a>
+
+            <a href="prompter.html" class="app-card">
+                <div class="app-title">3. Prómpter Flotante</div>
+                <p class="app-desc">Herramienta de lectura optimizada para dispositivos móviles. Texto ubicado en el margen superior para asegurar contacto visual constante con el lente nativo.</p>
+            </a>
+        </nav>
+
+        <footer>
+            &copy; 2026 Hernie Bacteria. Transmitiendo desde la periferia digital.
+        </footer>
+    </div>
+
+</body>
+</html>
