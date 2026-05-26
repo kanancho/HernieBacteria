@@ -3,20 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estudio VHS Multiformato Blindado</title>
+    <title>Estudio VHS Multiformato Pro con Mute</title>
     <style>
         body { margin: 0; background: #111; color: #eee; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; padding: 15px; box-sizing: border-box; }
-        .container { width: 100%; max-width: 500px; background: #1a1a22; border: 2px solid #2d2d3a; padding: 20px; border-radius: 8px; box-sizing: border-box; }
+        .container { width: 100%; max-width: 500px; background: #1a1a22; border: 2px solid #2d2d3a; padding: 20px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); box-sizing: border-box; }
         h1 { text-align: center; color: #e2e2e2; font-size: 16px; letter-spacing: 2px; text-transform: uppercase; margin-top: 0; border-bottom: 1px dashed #3a3a4a; padding-bottom: 10px; }
         
-        .video-box { position: relative; width: 100%; background: #000; border-radius: 6px; overflow: hidden; margin-bottom: 15px; aspect-ratio: 4/3; }
-        video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; transform: scaleX(-1); } 
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; display: block; transform: scaleX(-1); } 
+        .video-box { position: relative; width: 100%; background: #000; border-radius: 6px; overflow: hidden; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; }
+        video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; transform: scaleX(-1); opacity: 0.02; } 
+        canvas { position: relative; width: 100%; height: auto; z-index: 2; display: block; transform: scaleX(-1); } 
         
         .control-group { margin: 12px 0; background: #22222b; padding: 10px; border-radius: 6px; border: 1px solid #2d2d3a; }
         label { display: block; font-size: 11px; text-transform: uppercase; margin-bottom: 6px; color: #a0a0b0; font-weight: bold; }
         select, input[type="range"] { width: 100%; background: #141419; color: #fff; border: 1px solid #444; padding: 8px; font-family: inherit; font-size: 13px; border-radius: 4px; box-sizing: border-box; outline: none; }
         input[type="range"] { accent-color: #ff9f43; height: 6px; }
+
+        .switch-container { display: flex; align-items: center; justify-content: space-between; }
+        .switch-label { font-size: 11px; text-transform: uppercase; color: #a0a0b0; font-weight: bold; }
 
         .status { text-align: center; background: #0a0a0f; padding: 10px; border-radius: 4px; font-size: 11px; color: #00ffcc; border: 1px solid #22222b; margin: 10px 0; font-weight: bold; letter-spacing: 1px; }
         .buttons { display: flex; flex-direction: column; gap: 8px; }
@@ -40,6 +43,14 @@
         </div>
 
         <div class="status" id="status-text">SISTEMA APAGADO. INICIALIZA ENTORNO.</div>
+
+        <div class="control-group switch-container">
+            <span class="switch-label">Captura de Voz</span>
+            <select id="mic-toggle" style="width: auto; padding: 5px 10px;" onchange="toggleMute()">
+                <option value="on">🎤 TRANSMITIENDO</option>
+                <option value="muted">🔇 EN SILENCIO (MUTE)</option>
+            </select>
+        </div>
 
         <div class="control-group">
             <label for="visual-style">Estilo de Imagen (Cinta)</label>
@@ -77,35 +88,32 @@
         let localStream;
         let canvas, ctx, video;
         let animationFrameId;
-        let hpFilter, lpFilter, distortion, noiseGainNode;
+        let hpFilter, lpFilter, distortion, noiseGainNode, micGainNode;
 
         async function initHardware() {
             video = document.getElementById('input-video');
             canvas = document.getElementById('output-canvas');
             ctx = canvas.getContext('2d');
 
-            // CORRECCIÓN: El detector de reproducción se ancla ANTES de pedir el hardware
             video.addEventListener('playing', () => {
-                canvas.width = 640;
-                canvas.height = 480;
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
                 startVideoProcessingLoop();
             });
 
             try {
-                // Intento 1: Parámetros HD y audio nativo para móviles
                 localStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+                    video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
                     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
                 });
                 executeConsoleActivation();
             } catch (err) {
-                console.warn("Fallo de restricciones avanzadas. Aplicando modo híbrido universal...", err);
+                console.warn("Fallo de restricciones. Aplicando modo híbrido universal...", err);
                 try {
-                    // CORRECCIÓN: Intento 2 (Fallback): Captura estándar sin restricciones de marca ni lente fijo
                     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                     executeConsoleActivation();
                 } catch (fallbackErr) {
-                    alert("Error absoluto de hardware: Asegúrate de otorgar permisos en el candado de la URL.");
+                    alert("Error absoluto de hardware: Revisa los permisos.");
                     console.error(fallbackErr);
                 }
             }
@@ -145,7 +153,7 @@
 
                 if (Math.random() > 0.6) {
                     ctx.strokeStyle = Math.random() > 0.4 ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.25)';
-                    ctx.lineWidth = Math.random() * 1.5;
+                    ctx.lineWidth = Math.random() * 2;
                     let lineX = Math.random() * canvas.width;
                     ctx.beginPath();
                     ctx.moveTo(lineX, 0);
@@ -153,17 +161,18 @@
                     ctx.stroke();
                 }
 
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.07)';
-                for (let i = 0; i < 450; i++) {
+                let grainDensity = Math.floor((canvas.width * canvas.height) / 680);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+                for (let i = 0; i < grainDensity; i++) {
                     let grainX = Math.random() * canvas.width;
                     let grainY = Math.random() * canvas.height;
-                    ctx.fillRect(grainX, grainY, 1.5, 1.5);
+                    ctx.fillRect(grainX, grainY, 1.8, 1.8);
                 }
 
-                if (Math.random() > 0.90) {
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+                if (Math.random() > 0.92) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
                     let blockY = Math.random() * canvas.height;
-                    ctx.fillRect(0, blockY, canvas.width, Math.random() * 4);
+                    ctx.fillRect(0, blockY, canvas.width, Math.random() * 6);
                 }
 
                 animationFrameId = requestAnimationFrame(render);
@@ -174,6 +183,9 @@
         function setupAudioEngine() {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const audioSource = audioCtx.createMediaStreamSource(localStream);
+
+            // NUEVO: Nodo de control exclusivo para el volumen de tu micrófono
+            micGainNode = audioCtx.createGain();
 
             hpFilter = audioCtx.createBiquadFilter();
             hpFilter.type = "highpass";
@@ -194,7 +206,10 @@
             noiseGainNode = audioCtx.createGain();
             whiteNoise.start();
 
-            audioSource.connect(hpFilter);
+            // NUEVO ENRUTAMIENTO: Micrófono -> Mute Node -> Filtros de Frecuencia AM/FM
+            audioSource.connect(micGainNode);
+            micGainNode.connect(hpFilter);
+            
             hpFilter.connect(lpFilter);
             lpFilter.connect(distortion);
             
@@ -211,6 +226,18 @@
 
             window.processedAudioTrack = audioDest.stream.getAudioTracks()[0];
             updateAudioParameters();
+        }
+
+        // NUEVO: Función para alternar el silencio de la voz sin matar el siseo
+        function toggleMute() {
+            if (!audioCtx || !micGainNode) return;
+            const state = document.getElementById('mic-toggle').value;
+            
+            if (state === 'muted') {
+                micGainNode.gain.setValueAtTime(0, audioCtx.currentTime); // Cero volumen a la voz
+            } else {
+                micGainNode.gain.setValueAtTime(1, audioCtx.currentTime); // Restaura volumen completo
+            }
         }
 
         function updateAudioParameters() {
