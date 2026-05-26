@@ -13,7 +13,7 @@
         video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; opacity: 0.02; } 
         canvas { position: relative; width: 100%; height: auto; z-index: 2; display: block; } 
         
-        /* CORRECCIÓN: Alineación compacta a la izquierda y estado a la derecha */
+        /* Panel superior: Alineación compacta a la izquierda y estado a la derecha */
         .status-banner { display: flex; align-items: center; justify-content: flex-start; background: #0a0a0f; padding: 6px 10px; border-radius: 4px; border: 1px dashed #444; margin: 10px 0; font-family: inherit; font-size: 11px; text-transform: uppercase; font-weight: bold; gap: 6px; box-sizing: border-box; min-height: 36px; }
         .status-text { margin-left: auto; color: #ff9f43; letter-spacing: 1px; text-align: right; }
         
@@ -134,15 +134,6 @@
                     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
                 });
                 
-                video.srcObject = localStream;
-                
-                if(!video.dataset.hasListener) {
-                    video.addEventListener('playing', () => {
-                        startVideoProcessingLoop();
-                    });
-                    video.dataset.hasListener = "true";
-                }
-
                 executeConsoleActivation();
             } catch (err) {
                 console.warn("Fallo de restricciones de lente. Aplicando modo híbrido...", err);
@@ -150,7 +141,7 @@
                     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                     executeConsoleActivation();
                 } catch (fallbackErr) {
-                    alert("Error de hardware: Verifica los permisos en el navegador.");
+                    alert("Error de hardware: Revisa los permisos de tu cámara.");
                     console.error(fallbackErr);
                 }
             }
@@ -163,31 +154,40 @@
         }
 
         function executeConsoleActivation() {
+            video.srcObject = localStream;
+            
+            // BLINDAJE: Forzar encendido explícito del stream de forma inmediata
+            video.play().catch(e => console.log("Play diferido activo:", e));
+            
             setupAudioEngine();
+            
             document.getElementById('init-btn-mini').disabled = true;
             document.getElementById('photo-btn-mini').disabled = false;
             document.getElementById('rec-btn-mini').disabled = false;
             
             document.getElementById('status-text').innerText = "SEÑAL VIVA";
             document.getElementById('status-text').style.color = "#ff9f43";
+
+            // Iniciar el ciclo de dibujo directo sin depender del evento 'playing'
+            startVideoProcessingLoop();
         }
 
         function startVideoProcessingLoop() {
             if (animationFrameId) cancelAnimationFrame(animationFrameId);
 
             function render() {
-                if (!video || video.paused || video.ended) {
+                // Validación continua: esperar a que el hardware entregue píxeles válidos
+                if (!video || video.paused || video.ended || video.readyState < 2) {
                     animationFrameId = requestAnimationFrame(render);
                     return;
                 }
 
-                // CORRECCIÓN DIRECTA DEL BLACKOUT: El tamaño se calcula dinámicamente cuadro por cuadro
+                // Ajustar el Canvas exactamente a las dimensiones que está entregando el lente
                 if (video.videoWidth > 0 && (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight)) {
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
                 }
 
-                // Si las dimensiones aún no están listas, saltar el frame para evitar pantallas en negro
                 if (canvas.width === 0 || canvas.height === 0) {
                     animationFrameId = requestAnimationFrame(render);
                     return;
@@ -255,4 +255,142 @@
             statusTextNode.innerText = "CAPTURA OK";
             statusTextNode.style.color = "#ffff00";
             setTimeout(() => {
-                statusTextNode.innerText =
+                statusTextNode.innerText = originalMessage;
+                statusTextNode.style.color = "#ff9f43";
+            }, 1200);
+        }
+
+        function setupAudioEngine() {
+            if(audioCtx) return; 
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const audioSource = audioCtx.createMediaStreamSource(localStream);
+
+            micGainNode = audioCtx.createGain();
+            hpFilter = audioCtx.createBiquadFilter();
+            hpFilter.type = "highpass";
+            lpFilter = audioCtx.createBiquadFilter();
+            lpFilter.type = "lowpass";
+            distortion = audioCtx.createWaveShaper();
+            distortion.oversample = '4x';
+
+            const bufferSize = 2 * audioCtx.sampleRate;
+            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+            
+            const whiteNoise = audioCtx.createBufferSource();
+            whiteNoise.buffer = noiseBuffer;
+            whiteNoise.loop = true;
+
+            noiseGainNode = audioCtx.createGain();
+            whiteNoise.start();
+
+            audioSource.connect(micGainNode);
+            micGainNode.connect(hpFilter);
+            hpFilter.connect(lpFilter);
+            lpFilter.connect(distortion);
+            
+            const mainGain = audioCtx.createGain();
+            mainGain.gain.value = 0.8;
+            distortion.connect(mainGain);
+
+            whiteNoise.connect(noiseGainNode);
+            noiseGainNode.connect(mainGain);
+
+            const audioDest = audioCtx.createMediaStreamDestination();
+            mainGain.connect(audioDest);
+            mainGain.connect(audioCtx.destination); 
+
+            window.processedAudioTrack = audioDest.stream.getAudioTracks()[0];
+            updateAudioParameters();
+        }
+
+        function toggleMute() {
+            if (!audioCtx || !micGainNode) return;
+            const state = document.getElementById('mic-toggle').value;
+            if (state === 'muted') {
+                micGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            } else {
+                micGainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+            }
+        }
+
+        function updateAudioParameters() {
+            if (!audioCtx) return;
+            const mode = document.getElementById('audio-quality').value;
+            const hissVol = parseFloat(document.getElementById('hiss-volume').value);
+
+            if (mode === 'am') {
+                hpFilter.frequency.setValueAtTime(450, audioCtx.currentTime);
+                lpFilter.frequency.setValueAtTime(2200, audioCtx.currentTime);
+                let curve = new Float32Array(44100);
+                for (let i = 0; i < 44100; ++i) {
+                    let x = (i * 2) / 44100 - 1;
+                    curve[i] = ((3 + 25) * x * 15 * (Math.PI / 180)) / (Math.PI + 25 * Math.abs(x));
+                }
+                distortion.curve = curve;
+            } else {
+                hpFilter.frequency.setValueAtTime(120, audioCtx.currentTime);
+                lpFilter.frequency.setValueAtTime(7000, audioCtx.currentTime);
+                distortion.curve = null; 
+            }
+
+            if (noiseGainNode) noiseGainNode.gain.setValueAtTime(hissVol, audioCtx.currentTime);
+        }
+
+        function startRecording() {
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+            recordedChunks = [];
+
+            const canvasVideoStream = canvas.captureStream(24);
+            canvasVideoStream.addTrack(window.processedAudioTrack);
+
+            mediaRecorder = new MediaRecorder(canvasVideoStream, { mimeType: 'video/webm;codecs=vp8' });
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+            mediaRecorder.onstop = exportVhsFile;
+
+            mediaRecorder.start();
+
+            document.getElementById('rec-btn-mini').style.display = 'none';
+            document.getElementById('stop-btn-mini').style.display = 'inline-block';
+            document.getElementById('stop-btn-mini').disabled = false;
+
+            document.getElementById('camera-facing').disabled = true;
+
+            document.getElementById('status-text').innerText = "GRABANDO";
+            document.getElementById('status-text').style.color = "#ff3b30";
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            
+            document.getElementById('stop-btn-mini').style.display = 'none';
+            document.getElementById('stop-btn-mini').disabled = true;
+            document.getElementById('rec-btn-mini').style.display = 'inline-block';
+            
+            document.getElementById('camera-facing').disabled = false; 
+            
+            document.getElementById('status-text').innerText = "SEÑAL VIVA";
+            document.getElementById('status-text').style.color = "#ff9f43";
+        }
+
+        function exportVhsFile() {
+            const blob = new Blob(recordedChunks, { type: "video/webm" });
+            const url = URL.createObjectURL(blob);
+            
+            const downloadLink = document.createElement("a");
+            downloadLink.href = url;
+            downloadLink.download = `Cinta_VHS_${new Date().getTime()}.webm`;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            
+            setTimeout(() => {
+                document.body.removeChild(downloadLink);
+                URL.revokeObjectURL(url);
+            }, 150);
+        }
+    </script>
+</body>
+</html>
