@@ -3,29 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estudio VHS Pro Noir - Multi-Cámara</title>
+    <title>Estudio VHS Pro Noir & Central de Control Minimalista</title>
     <style>
         body { margin: 0; background: #111; color: #eee; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; padding: 15px; box-sizing: border-box; }
         .container { width: 100%; max-width: 500px; background: #1a1a22; border: 2px solid #2d2d3a; padding: 20px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); box-sizing: border-box; }
         h1 { text-align: center; color: #e2e2e2; font-size: 16px; letter-spacing: 2px; text-transform: uppercase; margin-top: 0; border-bottom: 1px dashed #3a3a4a; padding-bottom: 10px; }
         
+        /* CORRECCIÓN: Contenedor flexible sin relación de aspecto fija */
         .video-box { position: relative; width: 100%; background: #000; border-radius: 6px; overflow: hidden; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; }
         
-        /* El espejo (transform) ahora se controla dinámicamente por JavaScript */
-        video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; opacity: 0.02; } 
-        canvas { position: relative; width: 100%; height: auto; z-index: 2; display: block; } 
+        /* El video corre de fondo al 100% de la caja con opacidad mínima para mantener activa la laptop */
+        video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; transform: scaleX(-1); opacity: 0.02; } 
         
-        .status-banner { display: flex; align-items: center; justify-content: center; background: #0a0a0f; padding: 8px; border-radius: 4px; border: 1px dashed #444; margin: 10px 0; font-family: inherit; font-size: 11px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; color: #00ffcc; min-height: 25px; box-sizing: border-box; }
-        .status-text { text-align: center; flex-grow: 1; margin: 0; }
+        /* CORRECCIÓN: El canvas ahora dicta la altura real (relativa) de la caja en vertical u horizontal */
+        canvas { position: relative; width: 100%; height: auto; z-index: 2; display: block; transform: scaleX(-1); } 
         
-        .btn-control { background: #141419; color: #a0a0b0; border: 1px dashed #444; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-family: inherit; font-size: inherit; font-weight: bold; transition: background 0.2s; margin: 0 4px; }
+        /* CORRECCIÓN: Nuevo banner de estado unificado y controls minimalistas arriba */
+        .status-banner { display: flex; align-items: center; justify-content: center; background: #0a0a0f; padding: 5px 10px; border-radius: 4px; border: 1px dashed #444; margin: 10px 0; font-family: inherit; font-size: 11px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; color: #00ffcc; min-height: 25px; box-sizing: border-box; gap: 5px; }
+        .status-text { text-align: center; flex-grow: 1; margin: 0; color: #ff9f43; }
+        
+        /* Estilo mini y Noir para los botones de control arriba */
+        .btn-control { background: #141419; color: #a0a0b0; border: 1px dashed #444; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-family: inherit; font-size: inherit; font-weight: bold; transition: background 0.2s; margin: 0; }
         .btn-control:hover:not(:disabled) { background: #22222b; color: #fff; border-color: #777; }
         .btn-control:disabled { color: #555; border-color: #333; cursor: not-allowed; }
         
         .btn-photo-mini { color: #00bcd4; }
         .btn-rec-mini { color: #ff3b30; }
-        .btn-stop-mini { color: #ff3b30; border-color: #ff3b30; display: none; } 
+        .btn-stop-mini { color: #ff3b30; border-color: #ff3b30; display: none; } /* Oculto por defecto */
         .btn-stop-mini:hover:not(:disabled) { background: rgba(255, 59, 48, 0.2); }
+        
+        /* El botón de encendido reubicado desde abajo adopta estilo mini y su color azul */
+        .btn-init { background: #00bcd4; color: #fff; border: 1px solid #00bcd4; }
+        .btn-init.btn-control { border: 1px solid #00bcd4; }
         
         .control-group { margin: 12px 0; background: #22222b; padding: 10px; border-radius: 6px; border: 1px solid #2d2d3a; }
         label { display: block; font-size: 11px; text-transform: uppercase; margin-bottom: 6px; color: #a0a0b0; font-weight: bold; }
@@ -35,10 +44,6 @@
         .switch-container { display: flex; align-items: center; justify-content: space-between; }
         .switch-label { font-size: 11px; text-transform: uppercase; color: #a0a0b0; font-weight: bold; }
 
-        .buttons { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; }
-        button { width: 100%; padding: 12px; font-family: inherit; font-size: 13px; font-weight: bold; text-transform: uppercase; border: none; border-radius: 4px; cursor: pointer; }
-        .btn-init { background: #00bcd4; color: #fff; border: 1px solid #00bcd4; }
-        button:disabled { background: #2d2d3a; color: #555; cursor: not-allowed; }
         .note { font-size: 9px; color: #686878; text-align: center; margin-top: 12px; line-height: 1.4; }
     </style>
 </head>
@@ -54,17 +59,13 @@
 
         <div class="status-banner" id="status-bar">
             <button class="btn-control btn-photo-mini" id="photo-btn-mini" onclick="takeSnapshot()" disabled>📸 Foto</button>
-            <div class="status-text" id="status-text">SISTEMA APAGADO. INICIALIZA ENTORNO.</div>
+            
+            <div class="status-text" id="status-text">CINTA REBOBINADA. SEÑAL EN VIVO.</div>
+            
             <button class="btn-control btn-rec-mini" id="rec-btn-mini" onclick="startRecording()" disabled>🔴 Video</button>
             <button class="btn-control btn-stop-mini" id="stop-btn-mini" onclick="stopRecording()" disabled>⏹️ Parar</button>
-        </div>
-
-        <div class="control-group">
-            <label for="camera-facing">Lente Activo</label>
-            <select id="camera-facing" onchange="switchCameraLive()">
-                <option value="user">Selfie (Cámara Frontal)</option>
-                <option value="environment">Principal (Cámara Trasera)</option>
-            </select>
+            
+            <button class="btn-init btn-control" id="init-btn-mini" onclick="initHardware()">Encender</button>
         </div>
 
         <div class="control-group switch-container">
@@ -96,10 +97,6 @@
             <input type="range" id="hiss-volume" min="0" max="0.06" step="0.005" value="0.02" oninput="updateAudioParameters()">
         </div>
 
-        <div class="buttons">
-            <button class="btn-init" id="init-btn" onclick="initHardware()">1. Encender Lente y Micro</button>
-        </div>
-
         <div class="note">⚠️ OBLIGATORIO: Conecta audífonos antes de iniciar para evitar acoples técnicos (feedback).</div>
     </div>
 
@@ -111,166 +108,31 @@
         let animationFrameId;
         let hpFilter, lpFilter, distortion, noiseGainNode, micGainNode;
 
+        // Actualizar referencias de botones mini arriba
         let photoBtnMini = document.getElementById('photo-btn-mini');
         let recBtnMini = document.getElementById('rec-btn-mini');
         let stopBtnMini = document.getElementById('stop-btn-mini');
+        let initBtnMini = document.getElementById('init-btn-mini'); // Referencia al nuevo botón de encendido
 
         async function initHardware() {
             video = document.getElementById('input-video');
             canvas = document.getElementById('output-canvas');
             ctx = canvas.getContext('2d');
 
-            // CORRECCIÓN: Liberar la cámara anterior si se cambia de lente en caliente
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-            }
-
-            const selectedCamera = document.getElementById('camera-facing').value;
-
-            // Configurar el espejo dinámico según el lente elegido
-            if (selectedCamera === 'user') {
-                video.style.transform = "scaleX(-1)";
-                canvas.style.transform = "scaleX(-1)";
-            } else {
-                video.style.transform = "scaleX(1)";
-                canvas.style.transform = "scaleX(1)";
-            }
+            // Disparador cuando el flujo de video está oficialmente activo y corriendo
+            video.addEventListener('playing', () => {
+                // CORRECCIÓN: Las dimensiones del Canvas se igualan exactamente a las nativas detectadas por el lente
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                startVideoProcessingLoop();
+            });
 
             try {
+                // Intento 1: Parámetros adaptables HD y audio nativo para móviles
                 localStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: selectedCamera, width: { ideal: 1280 }, height: { ideal: 720 } },
+                    video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
                     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
                 });
-                
-                video.srcObject = localStream;
-                
-                // Asegurar que el listener del renderizado se asigne una sola vez
-                if(!video.dataset.hasListener) {
-                    video.addEventListener('playing', () => {
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
-                        startVideoProcessingLoop();
-                    });
-                    video.dataset.hasListener = "true";
-                } else {
-                    // Si ya tiene el listener, forzar ajuste de tamaño por cambio de orientación de cámara
-                    canvas.width = video.videoWidth || 640;
-                    canvas.height = video.videoHeight || 480;
-                }
-
                 executeConsoleActivation();
             } catch (err) {
-                console.warn("Fallo de restricciones de lente. Aplicando modo híbrido...", err);
-                try {
-                    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                    executeConsoleActivation();
-                } catch (fallbackErr) {
-                    alert("Error de hardware: Verifica los permisos del candado de la URL.");
-                    console.error(fallbackErr);
-                }
-            }
-        }
-
-        // FUNCIÓN NUEVA: Permite cambiar de cámara en vivo si ya está encendido el sistema
-        function switchCameraLive() {
-            const isBarActive = !document.getElementById('init-btn').disabled;
-            if (isBarActive) return; // Si la consola no ha sido inicializada, solo guarda la preferencia
-            initHardware();
-        }
-
-        function executeConsoleActivation() {
-            setupAudioEngine();
-            document.getElementById('init-btn').disabled = true;
-            photoBtnMini.disabled = false;
-            recBtnMini.disabled = false;
-            
-            document.getElementById('status-text').innerText = "CINTA REBOBINADA. SEÑAL EN VIVO.";
-            document.getElementById('status-text').style.color = "#ff9f43";
-        }
-
-        function startVideoProcessingLoop() {
-            function render() {
-                if (video.paused || video.ended) return;
-
-                let brightness = 100 + (Math.random() * 20 - 10); 
-                let contrast = 140;
-
-                if (Math.random() > 0.98) {
-                    brightness = 210; 
-                    contrast = 180;
-                }
-
-                const currentStyle = document.getElementById('visual-style').value;
-                if (currentStyle === 'noir') {
-                    ctx.filter = `grayscale(100%) brightness(${brightness}%) contrast(${contrast}%)`;
-                } else {
-                    ctx.filter = `saturate(170%) brightness(${brightness - 5}%) contrast(${contrast - 15}%)`;
-                }
-
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                ctx.filter = 'none'; 
-
-                if (Math.random() > 0.6) {
-                    ctx.strokeStyle = Math.random() > 0.4 ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.25)';
-                    ctx.lineWidth = Math.random() * 2;
-                    let lineX = Math.random() * canvas.width;
-                    ctx.beginPath();
-                    ctx.moveTo(lineX, 0);
-                    ctx.lineTo(lineX, canvas.height);
-                    ctx.stroke();
-                }
-
-                let grainDensity = Math.floor((canvas.width * canvas.height) / 680);
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-                for (let i = 0; i < grainDensity; i++) {
-                    let grainX = Math.random() * canvas.width;
-                    let grainY = Math.random() * canvas.height;
-                    ctx.fillRect(grainX, grainY, 1.8, 1.8);
-                }
-
-                if (Math.random() > 0.92) {
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
-                    let blockY = Math.random() * canvas.height;
-                    ctx.fillRect(0, blockY, canvas.width, Math.random() * 6);
-                }
-
-                animationFrameId = requestAnimationFrame(render);
-            }
-            render();
-        }
-
-        function takeSnapshot() {
-            if (!canvas) return;
-            const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
-            const downloadLink = document.createElement("a");
-            downloadLink.href = dataUrl;
-            downloadLink.download = `Foto_Noir_VHS_${new Date().getTime()}.jpg`;
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            document.body.removeChild(downloadLink);
-            
-            const statusTextNode = document.getElementById('status-text');
-            const originalMessage = statusTextNode.innerText;
-            statusTextNode.innerText = "📸 ¡PLACA REVELADA Y GUARDADA!";
-            statusTextNode.style.color = "#ffff00";
-            setTimeout(() => {
-                statusTextNode.innerText = originalMessage;
-                statusTextNode.style.color = "#ff9f43";
-            }, 1200);
-        }
-
-        function setupAudioEngine() {
-            if(audioCtx) return; // Evita duplicar el contexto de audio en reinicios de cámara
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const audioSource = audioCtx.createMediaStreamSource(localStream);
-
-            micGainNode = audioCtx.createGain();
-            hpFilter = audioCtx.createBiquadFilter();
-            hpFilter.type = "highpass";
-            lpFilter = audioCtx.createBiquadFilter();
-            lpFilter.type = "lowpass";
-            distortion = audioCtx.createWaveShaper();
-            distortion.oversample = '4x';
-
-            const bufferSize = 2 * audioCtx.sampleRate;
-            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.
+                console.warn("Fallo de restricciones avanzadas. Aplicando modo híbrido universal...", err);
