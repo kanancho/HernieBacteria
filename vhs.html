@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estudio VHS Pro Noir - Controles Derecha</title>
+    <title>Estudio VHS Pro Noir - Consola Unificada</title>
     <style>
         body { margin: 0; background: #111; color: #eee; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; padding: 15px; box-sizing: border-box; }
         .container { width: 100%; max-width: 500px; background: #1a1a22; border: 2px solid #2d2d3a; padding: 20px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); box-sizing: border-box; }
@@ -13,13 +13,20 @@
         video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; opacity: 0.02; } 
         canvas { position: relative; width: 100%; height: auto; z-index: 2; display: block; } 
         
-        /* CORRECCIÓN: Distribución elástica separando extremos (Texto Izquierda | Botones Derecha) */
-        .status-banner { display: flex; align-items: center; justify-content: space-between; background: #0a0a0f; padding: 6px 10px; border-radius: 4px; border: 1px dashed #444; margin: 10px 0; font-family: inherit; font-size: 11px; text-transform: uppercase; font-weight: bold; box-sizing: border-box; min-height: 38px; }
-        .status-text { color: #ff9f43; letter-spacing: 1px; text-align: left; margin: 0; }
-        .controls-group { display: flex; items-center: center; gap: 6px; }
+        /* CORRECCIÓN: Tira horizontal única (Selectores Izquierda | Botones Derecha) */
+        .status-banner { display: flex; align-items: center; justify-content: space-between; background: #0a0a0f; padding: 6px 8px; border-radius: 4px; border: 1px dashed #444; margin: 10px 0; font-family: inherit; font-size: 11px; text-transform: uppercase; font-weight: bold; box-sizing: border-box; min-height: 40px; width: 100%; gap: 4px; }
+        
+        .left-group { display: flex; align-items: center; gap: 5px; }
+        .controls-group { display: flex; align-items: center; gap: 4px; }
+        
+        .status-text { color: #ff9f43; letter-spacing: 1px; font-size: 10px; margin: 0 2px; min-width: 45px; text-align: center; }
+        
+        /* Selectores integrados ultra-compactos */
+        .select-mini { background: #141419; color: #eee; border: 1px dashed #444; padding: 4px 6px; font-family: inherit; font-size: 10px; border-radius: 3px; outline: none; width: auto; max-width: 85px; cursor: pointer; }
+        .select-mini:disabled { color: #555; border-color: #222; cursor: not-allowed; }
         
         /* Botones de control estilo Noir */
-        .btn-control { background: #141419; color: #a0a0b0; border: 1px dashed #444; padding: 5px 9px; border-radius: 3px; cursor: pointer; font-family: inherit; font-size: inherit; font-weight: bold; transition: background 0.2s; margin: 0; }
+        .btn-control { background: #141419; color: #a0a0b0; border: 1px dashed #444; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-family: inherit; font-size: 10px; font-weight: bold; transition: background 0.2s; margin: 0; }
         .btn-control:hover:not(:disabled) { background: #22222b; color: #fff; border-color: #777; }
         .btn-control:disabled { color: #555; border-color: #333; cursor: not-allowed; }
         
@@ -28,7 +35,6 @@
         .btn-stop-mini { color: #ff3b30; border-color: #ff3b30; display: none; } 
         .btn-stop-mini:hover:not(:disabled) { background: rgba(255, 59, 48, 0.2); }
         
-        /* Botón de encendido integrado en el grupo derecho */
         .btn-init { background: #00bcd4; color: #fff; border: 1px solid #00bcd4; }
         .btn-init.btn-control { border: 1px solid #00bcd4; }
         
@@ -54,7 +60,19 @@
         </div>
 
         <div class="status-banner" id="status-bar">
-            <div class="status-text" id="status-text">APAGADO</div>
+            <div class="left-group">
+                <select id="camera-facing" onchange="switchCameraLive()" class="select-mini">
+                    <option value="user">Selfie</option>
+                    <option value="environment">Trasera</option>
+                </select>
+                
+                <select id="visual-style" class="select-mini">
+                    <option value="noir">Noir</option>
+                    <option value="color">Color</option>
+                </select>
+                
+                <div class="status-text" id="status-text">OFF</div>
+            </div>
             
             <div class="controls-group">
                 <button class="btn-init btn-control" id="init-btn-mini" onclick="initHardware()">Encender</button>
@@ -64,27 +82,11 @@
             </div>
         </div>
 
-        <div class="control-group">
-            <label for="camera-facing">Lente Activo</label>
-            <select id="camera-facing" onchange="switchCameraLive()">
-                <option value="user">Selfie (Cámara Frontal)</option>
-                <option value="environment">Principal (Cámara Trasera)</option>
-            </select>
-        </div>
-
         <div class="control-group switch-container">
             <span class="switch-label">Captura de Voz</span>
             <select id="mic-toggle" style="width: auto; padding: 5px 10px;" onchange="toggleMute()">
                 <option value="on">🎤 TRANSMITIENDO</option>
                 <option value="muted">🔇 EN SILENCIO (MUTE)</option>
-            </select>
-        </div>
-
-        <div class="control-group">
-            <label for="visual-style">Estilo de Imagen (Cinta)</label>
-            <select id="visual-style">
-                <option value="noir">Film Noir (Blanco y Negro de alto contraste)</option>
-                <option value="color">Color VHS Casero (Saturación analógica gastada)</option>
             </select>
         </div>
 
@@ -163,7 +165,6 @@
 
         function executeConsoleActivation() {
             video.srcObject = localStream;
-            
             video.play().catch(e => console.log("Play diferido activo:", e));
             
             setupAudioEngine();
@@ -172,7 +173,7 @@
             photoBtnMini.disabled = false;
             recBtnMini.disabled = false;
             
-            document.getElementById('status-text').innerText = "SEÑAL VIVA";
+            document.getElementById('status-text').innerText = "VIVO";
             document.getElementById('status-text').style.color = "#ff9f43";
 
             startVideoProcessingLoop();
@@ -257,7 +258,7 @@
             const statusTextNode = document.getElementById('status-text');
             const originalMessage = statusTextNode.innerText;
             const originalColor = statusTextNode.style.color;
-            statusTextNode.innerText = "CAPTURA OK";
+            statusTextNode.innerText = "FOTO OK";
             statusTextNode.style.color = "#ffff00";
             setTimeout(() => {
                 statusTextNode.innerText = originalMessage;
@@ -364,7 +365,7 @@
 
             document.getElementById('camera-facing').disabled = true;
 
-            document.getElementById('status-text').innerText = "GRABANDO";
+            document.getElementById('status-text').innerText = "REC";
             document.getElementById('status-text').style.color = "#ff3b30";
         }
 
@@ -377,7 +378,7 @@
             
             document.getElementById('camera-facing').disabled = false; 
             
-            document.getElementById('status-text').innerText = "SEÑAL VIVA";
+            document.getElementById('status-text').innerText = "VIVO";
             document.getElementById('status-text').style.color = "#ff9f43";
         }
 
