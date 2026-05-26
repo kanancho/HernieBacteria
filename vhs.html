@@ -3,136 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estudio VHS Pro Noir & Central de Control Minimalista</title>
+    <title>Estudio VHS Pro Noir - Control Izquierdo Fix</title>
     <style>
         body { margin: 0; background: #111; color: #eee; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; padding: 15px; box-sizing: border-box; }
         .container { width: 100%; max-width: 500px; background: #1a1a22; border: 2px solid #2d2d3a; padding: 20px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); box-sizing: border-box; }
         h1 { text-align: center; color: #e2e2e2; font-size: 16px; letter-spacing: 2px; text-transform: uppercase; margin-top: 0; border-bottom: 1px dashed #3a3a4a; padding-bottom: 10px; }
         
-        /* CORRECCIÓN: Contenedor flexible sin relación de aspecto fija */
         .video-box { position: relative; width: 100%; background: #000; border-radius: 6px; overflow: hidden; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; }
+        video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; opacity: 0.02; } 
+        canvas { position: relative; width: 100%; height: auto; z-index: 2; display: block; } 
         
-        /* El video corre de fondo al 100% de la caja con opacidad mínima para mantener activa la laptop */
-        video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; transform: scaleX(-1); opacity: 0.02; } 
+        /* Banner superior con distribución Flexbox */
+        .status-banner { display: flex; align-items: center; justify-content: center; background: #0a0a0f; padding: 5px 10px; border-radius: 4px; border: 1px dashed #444; margin: 10px 0; font-family: inherit; font-size: 11px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; color: #00ffcc; min-height: 25px; box-sizing: border-box; gap: 6px; }
+        .status-text { text-align: center; flex-grow: 1; margin: 0; color: #ff9f43; min-width: 80px; }
         
-        /* CORRECCIÓN: El canvas ahora dicta la altura real (relativa) de la caja en vertical u horizontal */
-        canvas { position: relative; width: 100%; height: auto; z-index: 2; display: block; transform: scaleX(-1); } 
-        
-        /* CORRECCIÓN: Nuevo banner de estado unificado y controls minimalistas arriba */
-        .status-banner { display: flex; align-items: center; justify-content: center; background: #0a0a0f; padding: 5px 10px; border-radius: 4px; border: 1px dashed #444; margin: 10px 0; font-family: inherit; font-size: 11px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; color: #00ffcc; min-height: 25px; box-sizing: border-box; gap: 5px; }
-        .status-text { text-align: center; flex-grow: 1; margin: 0; color: #ff9f43; }
-        
-        /* Estilo mini y Noir para los botones de control arriba */
+        /* Botones de control estilo Noir */
         .btn-control { background: #141419; color: #a0a0b0; border: 1px dashed #444; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-family: inherit; font-size: inherit; font-weight: bold; transition: background 0.2s; margin: 0; }
         .btn-control:hover:not(:disabled) { background: #22222b; color: #fff; border-color: #777; }
         .btn-control:disabled { color: #555; border-color: #333; cursor: not-allowed; }
         
         .btn-photo-mini { color: #00bcd4; }
         .btn-rec-mini { color: #ff3b30; }
-        .btn-stop-mini { color: #ff3b30; border-color: #ff3b30; display: none; } /* Oculto por defecto */
+        .btn-stop-mini { color: #ff3b30; border-color: #ff3b30; display: none; } 
         .btn-stop-mini:hover:not(:disabled) { background: rgba(255, 59, 48, 0.2); }
         
-        /* El botón de encendido reubicado desde abajo adopta estilo mini y su color azul */
+        /* Estilo para el botón Encender colocado a la izquierda */
         .btn-init { background: #00bcd4; color: #fff; border: 1px solid #00bcd4; }
         .btn-init.btn-control { border: 1px solid #00bcd4; }
         
         .control-group { margin: 12px 0; background: #22222b; padding: 10px; border-radius: 6px; border: 1px solid #2d2d3a; }
-        label { display: block; font-size: 11px; text-transform: uppercase; margin-bottom: 6px; color: #a0a0b0; font-weight: bold; }
-        select, input[type="range"] { width: 100%; background: #141419; color: #fff; border: 1px solid #444; padding: 8px; font-family: inherit; font-size: 13px; border-radius: 4px; box-sizing: border-box; outline: none; }
-        input[type="range"] { accent-color: #ff9f43; height: 6px; }
-
-        .switch-container { display: flex; align-items: center; justify-content: space-between; }
-        .switch-label { font-size: 11px; text-transform: uppercase; color: #a0a0b0; font-weight: bold; }
-
-        .note { font-size: 9px; color: #686878; text-align: center; margin-top: 12px; line-height: 1.4; }
-    </style>
-</head>
-<body>
-
-    <div class="container">
-        <h1>Estudio VHS & Onda Media</h1>
-        
-        <div class="video-box">
-            <video id="input-video" autoplay playsinline muted></video>
-            <canvas id="output-canvas"></canvas>
-        </div>
-
-        <div class="status-banner" id="status-bar">
-            <button class="btn-control btn-photo-mini" id="photo-btn-mini" onclick="takeSnapshot()" disabled>📸 Foto</button>
-            
-            <div class="status-text" id="status-text">CINTA REBOBINADA. SEÑAL EN VIVO.</div>
-            
-            <button class="btn-control btn-rec-mini" id="rec-btn-mini" onclick="startRecording()" disabled>🔴 Video</button>
-            <button class="btn-control btn-stop-mini" id="stop-btn-mini" onclick="stopRecording()" disabled>⏹️ Parar</button>
-            
-            <button class="btn-init btn-control" id="init-btn-mini" onclick="initHardware()">Encender</button>
-        </div>
-
-        <div class="control-group switch-container">
-            <span class="switch-label">Captura de Voz</span>
-            <select id="mic-toggle" style="width: auto; padding: 5px 10px;" onchange="toggleMute()">
-                <option value="on">🎤 TRANSMITIENDO</option>
-                <option value="muted">🔇 EN SILENCIO (MUTE)</option>
-            </select>
-        </div>
-
-        <div class="control-group">
-            <label for="visual-style">Estilo de Imagen (Cinta)</label>
-            <select id="visual-style">
-                <option value="noir">Film Noir (Blanco y Negro de alto contraste)</option>
-                <option value="color">Color VHS Casero (Saturación analógica gastada)</option>
-            </select>
-        </div>
-
-        <div class="control-group">
-            <label for="audio-quality">Frecuencia de Audio</label>
-            <select id="audio-quality" onchange="updateAudioParameters()">
-                <option value="am">Radio AM Rústica (Estrecha y distorsionada)</option>
-                <option value="fm">Radio FM Retro (Mayor nitidez y cuerpo)</option>
-            </select>
-        </div>
-
-        <div class="control-group">
-            <label for="hiss-volume">Intensidad del Siseo (Hiss)</label>
-            <input type="range" id="hiss-volume" min="0" max="0.06" step="0.005" value="0.02" oninput="updateAudioParameters()">
-        </div>
-
-        <div class="note">⚠️ OBLIGATORIO: Conecta audífonos antes de iniciar para evitar acoples técnicos (feedback).</div>
-    </div>
-
-    <script>
-        let audioCtx, mediaRecorder;
-        let recordedChunks = [];
-        let localStream;
-        let canvas, ctx, video;
-        let animationFrameId;
-        let hpFilter, lpFilter, distortion, noiseGainNode, micGainNode;
-
-        // Actualizar referencias de botones mini arriba
-        let photoBtnMini = document.getElementById('photo-btn-mini');
-        let recBtnMini = document.getElementById('rec-btn-mini');
-        let stopBtnMini = document.getElementById('stop-btn-mini');
-        let initBtnMini = document.getElementById('init-btn-mini'); // Referencia al nuevo botón de encendido
-
-        async function initHardware() {
-            video = document.getElementById('input-video');
-            canvas = document.getElementById('output-canvas');
-            ctx = canvas.getContext('2d');
-
-            // Disparador cuando el flujo de video está oficialmente activo y corriendo
-            video.addEventListener('playing', () => {
-                // CORRECCIÓN: Las dimensiones del Canvas se igualan exactamente a las nativas detectadas por el lente
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                startVideoProcessingLoop();
-            });
-
-            try {
-                // Intento 1: Parámetros adaptables HD y audio nativo para móviles
-                localStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-                    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-                });
-                executeConsoleActivation();
-            } catch (err) {
-                console.warn("Fallo de restricciones avanzadas. Aplicando modo híbrido universal...", err);
+        label { display: block; font-size: 11px; text-transform: uppercase; margin-bottom: 6px; color: #a0a
