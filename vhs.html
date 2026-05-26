@@ -3,31 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estudio VHS Pro Noir & Onda Media - Panel Superior Fix</title>
+    <title>Estudio VHS Pro Noir - Multi-Cámara</title>
     <style>
         body { margin: 0; background: #111; color: #eee; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; padding: 15px; box-sizing: border-box; }
         .container { width: 100%; max-width: 500px; background: #1a1a22; border: 2px solid #2d2d3a; padding: 20px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); box-sizing: border-box; }
         h1 { text-align: center; color: #e2e2e2; font-size: 16px; letter-spacing: 2px; text-transform: uppercase; margin-top: 0; border-bottom: 1px dashed #3a3a4a; padding-bottom: 10px; }
         
         .video-box { position: relative; width: 100%; background: #000; border-radius: 6px; overflow: hidden; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; }
-        video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; transform: scaleX(-1); opacity: 0.02; } 
-        canvas { position: relative; width: 100%; height: auto; z-index: 2; display: block; transform: scaleX(-1); } 
         
-        /* CORRECCIÓN: Nuevo banner de estado y controles REUBICADOS arriba */
+        /* El espejo (transform) ahora se controla dinámicamente por JavaScript */
+        video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; opacity: 0.02; } 
+        canvas { position: relative; width: 100%; height: auto; z-index: 2; display: block; } 
+        
         .status-banner { display: flex; align-items: center; justify-content: center; background: #0a0a0f; padding: 8px; border-radius: 4px; border: 1px dashed #444; margin: 10px 0; font-family: inherit; font-size: 11px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; color: #00ffcc; min-height: 25px; box-sizing: border-box; }
         .status-text { text-align: center; flex-grow: 1; margin: 0; }
         
-        /* Estilo mini y Noir para los botones de control arriba */
         .btn-control { background: #141419; color: #a0a0b0; border: 1px dashed #444; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-family: inherit; font-size: inherit; font-weight: bold; transition: background 0.2s; margin: 0 4px; }
         .btn-control:hover:not(:disabled) { background: #22222b; color: #fff; border-color: #777; }
         .btn-control:disabled { color: #555; border-color: #333; cursor: not-allowed; }
         
         .btn-photo-mini { color: #00bcd4; }
         .btn-rec-mini { color: #ff3b30; }
-        .btn-stop-mini { color: #ff3b30; border-color: #ff3b30; display: none; } /* Oculto por defecto */
+        .btn-stop-mini { color: #ff3b30; border-color: #ff3b30; display: none; } 
         .btn-stop-mini:hover:not(:disabled) { background: rgba(255, 59, 48, 0.2); }
         
-        /* Reubicación y limpieza de controles inferiores */
         .control-group { margin: 12px 0; background: #22222b; padding: 10px; border-radius: 6px; border: 1px solid #2d2d3a; }
         label { display: block; font-size: 11px; text-transform: uppercase; margin-bottom: 6px; color: #a0a0b0; font-weight: bold; }
         select, input[type="range"] { width: 100%; background: #141419; color: #fff; border: 1px solid #444; padding: 8px; font-family: inherit; font-size: 13px; border-radius: 4px; box-sizing: border-box; outline: none; }
@@ -38,11 +37,7 @@
 
         .buttons { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; }
         button { width: 100%; padding: 12px; font-family: inherit; font-size: 13px; font-weight: bold; text-transform: uppercase; border: none; border-radius: 4px; cursor: pointer; }
-        
         .btn-init { background: #00bcd4; color: #fff; border: 1px solid #00bcd4; }
-        
-        /* Los botones masivos originales SE ELIMINAN de aquí */
-        
         button:disabled { background: #2d2d3a; color: #555; cursor: not-allowed; }
         .note { font-size: 9px; color: #686878; text-align: center; margin-top: 12px; line-height: 1.4; }
     </style>
@@ -59,11 +54,17 @@
 
         <div class="status-banner" id="status-bar">
             <button class="btn-control btn-photo-mini" id="photo-btn-mini" onclick="takeSnapshot()" disabled>📸 Foto</button>
-            
             <div class="status-text" id="status-text">SISTEMA APAGADO. INICIALIZA ENTORNO.</div>
-            
             <button class="btn-control btn-rec-mini" id="rec-btn-mini" onclick="startRecording()" disabled>🔴 Video</button>
             <button class="btn-control btn-stop-mini" id="stop-btn-mini" onclick="stopRecording()" disabled>⏹️ Parar</button>
+        </div>
+
+        <div class="control-group">
+            <label for="camera-facing">Lente Activo</label>
+            <select id="camera-facing" onchange="switchCameraLive()">
+                <option value="user">Selfie (Cámara Frontal)</option>
+                <option value="environment">Principal (Cámara Trasera)</option>
+            </select>
         </div>
 
         <div class="control-group switch-container">
@@ -97,7 +98,7 @@
 
         <div class="buttons">
             <button class="btn-init" id="init-btn" onclick="initHardware()">1. Encender Lente y Micro</button>
-            </div>
+        </div>
 
         <div class="note">⚠️ OBLIGATORIO: Conecta audífonos antes de iniciar para evitar acoples técnicos (feedback).</div>
     </div>
@@ -110,7 +111,6 @@
         let animationFrameId;
         let hpFilter, lpFilter, distortion, noiseGainNode, micGainNode;
 
-        // Actualizar referencias de botones mini Noir arriba
         let photoBtnMini = document.getElementById('photo-btn-mini');
         let recBtnMini = document.getElementById('rec-btn-mini');
         let stopBtnMini = document.getElementById('stop-btn-mini');
@@ -120,38 +120,67 @@
             canvas = document.getElementById('output-canvas');
             ctx = canvas.getContext('2d');
 
-            // Disparador cuando el flujo de video está oficialmente activo y corriendo
-            video.addEventListener('playing', () => {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                startVideoProcessingLoop();
-            });
+            // CORRECCIÓN: Liberar la cámara anterior si se cambia de lente en caliente
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+
+            const selectedCamera = document.getElementById('camera-facing').value;
+
+            // Configurar el espejo dinámico según el lente elegido
+            if (selectedCamera === 'user') {
+                video.style.transform = "scaleX(-1)";
+                canvas.style.transform = "scaleX(-1)";
+            } else {
+                video.style.transform = "scaleX(1)";
+                canvas.style.transform = "scaleX(1)";
+            }
 
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+                    video: { facingMode: selectedCamera, width: { ideal: 1280 }, height: { ideal: 720 } },
                     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
                 });
+                
+                video.srcObject = localStream;
+                
+                // Asegurar que el listener del renderizado se asigne una sola vez
+                if(!video.dataset.hasListener) {
+                    video.addEventListener('playing', () => {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        startVideoProcessingLoop();
+                    });
+                    video.dataset.hasListener = "true";
+                } else {
+                    // Si ya tiene el listener, forzar ajuste de tamaño por cambio de orientación de cámara
+                    canvas.width = video.videoWidth || 640;
+                    canvas.height = video.videoHeight || 480;
+                }
+
                 executeConsoleActivation();
             } catch (err) {
-                console.warn("Fallo de restricciones. Aplicando modo híbrido universal...", err);
+                console.warn("Fallo de restricciones de lente. Aplicando modo híbrido...", err);
                 try {
                     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                     executeConsoleActivation();
                 } catch (fallbackErr) {
-                    alert("Error absoluto de hardware: Revisa los permisos.");
+                    alert("Error de hardware: Verifica los permisos del candado de la URL.");
                     console.error(fallbackErr);
                 }
             }
         }
 
-        function executeConsoleActivation() {
-            video.srcObject = localStream;
-            setupAudioEngine();
+        // FUNCIÓN NUEVA: Permite cambiar de cámara en vivo si ya está encendido el sistema
+        function switchCameraLive() {
+            const isBarActive = !document.getElementById('init-btn').disabled;
+            if (isBarActive) return; // Si la consola no ha sido inicializada, solo guarda la preferencia
+            initHardware();
+        }
 
+        function executeConsoleActivation() {
+            setupAudioEngine();
             document.getElementById('init-btn').disabled = true;
-            
-            // NUEVO: Habilitar los mini controles arriba
             photoBtnMini.disabled = false;
             recBtnMini.disabled = false;
             
@@ -231,11 +260,11 @@
         }
 
         function setupAudioEngine() {
+            if(audioCtx) return; // Evita duplicar el contexto de audio en reinicios de cámara
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const audioSource = audioCtx.createMediaStreamSource(localStream);
 
             micGainNode = audioCtx.createGain();
-
             hpFilter = audioCtx.createBiquadFilter();
             hpFilter.type = "highpass";
             lpFilter = audioCtx.createBiquadFilter();
@@ -244,121 +273,4 @@
             distortion.oversample = '4x';
 
             const bufferSize = 2 * audioCtx.sampleRate;
-            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-            const output = noiseBuffer.getChannelData(0);
-            for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
-            
-            const whiteNoise = audioCtx.createBufferSource();
-            whiteNoise.buffer = noiseBuffer;
-            whiteNoise.loop = true;
-
-            noiseGainNode = audioCtx.createGain();
-            whiteNoise.start();
-
-            audioSource.connect(micGainNode);
-            micGainNode.connect(hpFilter);
-            hpFilter.connect(lpFilter);
-            lpFilter.connect(distortion);
-            
-            const mainGain = audioCtx.createGain();
-            mainGain.gain.value = 0.8;
-            distortion.connect(mainGain);
-
-            whiteNoise.connect(noiseGainNode);
-            noiseGainNode.connect(mainGain);
-
-            const audioDest = audioCtx.createMediaStreamDestination();
-            mainGain.connect(audioDest);
-            mainGain.connect(audioCtx.destination); 
-
-            window.processedAudioTrack = audioDest.stream.getAudioTracks()[0];
-            updateAudioParameters();
-        }
-
-        function toggleMute() {
-            if (!audioCtx || !micGainNode) return;
-            const state = document.getElementById('mic-toggle').value;
-            if (state === 'muted') {
-                micGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-            } else {
-                micGainNode.gain.setValueAtTime(1, audioCtx.currentTime);
-            }
-        }
-
-        function updateAudioParameters() {
-            if (!audioCtx) return;
-            const mode = document.getElementById('audio-quality').value;
-            const hissVol = parseFloat(document.getElementById('hiss-volume').value);
-
-            if (mode === 'am') {
-                hpFilter.frequency.setValueAtTime(450, audioCtx.currentTime);
-                lpFilter.frequency.setValueAtTime(2200, audioCtx.currentTime);
-                let curve = new Float32Array(44100);
-                for (let i = 0; i < 44100; ++i) {
-                    let x = (i * 2) / 44100 - 1;
-                    curve[i] = ((3 + 25) * x * 15 * (Math.PI / 180)) / (Math.PI + 25 * Math.abs(x));
-                }
-                distortion.curve = curve;
-            } else {
-                hpFilter.frequency.setValueAtTime(120, audioCtx.currentTime);
-                lpFilter.frequency.setValueAtTime(7000, audioCtx.currentTime);
-                distortion.curve = null; 
-            }
-
-            if (noiseGainNode) noiseGainNode.gain.setValueAtTime(hissVol, audioCtx.currentTime);
-        }
-
-        function startRecording() {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            recordedChunks = [];
-
-            const canvasVideoStream = canvas.captureStream(24);
-            canvasVideoStream.addTrack(window.processedAudioTrack);
-
-            mediaRecorder = new MediaRecorder(canvasVideoStream, { mimeType: 'video/webm;codecs=vp8' });
-            mediaRecorder.ondataavailable = (e) => {
-                if (e.data.size > 0) recordedChunks.push(e.data);
-            };
-            mediaRecorder.onstop = exportVhsFile;
-
-            mediaRecorder.start();
-
-            // NUEVO: Ocultar Grabar y Mostrar Parar en el banner de control arriba
-            recBtnMini.style.display = 'none';
-            stopBtnMini.style.display = 'inline-block';
-            stopBtnMini.disabled = false;
-
-            document.getElementById('status-text').innerText = "🔴 GRABANDO EN CASSETTE VHS...";
-            document.getElementById('status-text').style.color = "#ff3b30";
-        }
-
-        function stopRecording() {
-            mediaRecorder.stop();
-            
-            // NUEVO: Ocultar Parar y Mostrar Grabar en el banner de control arriba
-            stopBtnMini.style.display = 'none';
-            stopBtnMini.disabled = true;
-            recBtnMini.style.display = 'inline-block';
-            
-            document.getElementById('status-text').innerText = "CINTA REBOBINADA. SEÑAL EN VIVO.";
-            document.getElementById('status-text').style.color = "#ff9f43";
-        }
-
-        function exportVhsFile() {
-            const blob = new Blob(recordedChunks, { type: "video/webm" });
-            const url = URL.createObjectURL(blob);
-            
-            const downloadLink = document.createElement("a");
-            downloadLink.href = url;
-            downloadLink.download = `Cinta_VHS_${new Date().getTime()}.webm`;
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            
-            setTimeout(() => {
-                document.body.removeChild(downloadLink);
-                URL.revokeObjectURL(url);
-            }, 150);
-        }
-    </script>
-</body>
-</html>
+            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.
