@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estudio VHS Multiformato Pro con Mute</title>
+    <title>Estudio VHS Pro & Obturador Fotográfico</title>
     <style>
         body { margin: 0; background: #111; color: #eee; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; padding: 15px; box-sizing: border-box; }
         .container { width: 100%; max-width: 500px; background: #1a1a22; border: 2px solid #2d2d3a; padding: 20px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); box-sizing: border-box; }
@@ -28,7 +28,12 @@
         .btn-init { background: #00bcd4; color: #fff; }
         .btn-rec { background: #ff3b30; color: #fff; }
         .btn-stop { background: #4caf50; color: #fff; }
-        button:disabled { background: #2d2d3a; color: #555; cursor: not-allowed; }
+        
+        /* NUEVO: Diseño del botón obturador fotográfico */
+        .btn-photo { background: #ffffff; color: #111; box-shadow: 0 4px 10px rgba(255,255,255,0.1); }
+        .btn-photo:hover { background: #e5e5e5; }
+        
+        button:disabled { background: #2d2d3a; color: #555; cursor: not-allowed; box-shadow: none; }
         .note { font-size: 9px; color: #686878; text-align: center; margin-top: 12px; line-height: 1.4; }
     </style>
 </head>
@@ -75,6 +80,9 @@
 
         <div class="buttons">
             <button class="btn-init" id="init-btn" onclick="initHardware()">1. Encender Lente y Micro</button>
+            
+            <button class="btn-photo" id="photo-btn" onclick="takeSnapshot()" disabled>📸 Capturar Foto Analógica</button>
+            
             <button class="btn-rec" id="rec-btn" onclick="startRecording()" disabled>2. Grabar en Cinta</button>
             <button class="btn-stop" id="stop-btn" onclick="stopRecording()" disabled>3. Cortar y Exportar</button>
         </div>
@@ -125,6 +133,7 @@
 
             document.getElementById('init-btn').disabled = true;
             document.getElementById('rec-btn').disabled = false;
+            document.getElementById('photo-btn').disabled = false; // NUEVO: Habilitar obturador fotográfico
             document.getElementById('status-text').innerText = "CINTA REBOBINADA. SEÑAL EN VIVO.";
             document.getElementById('status-text').style.color = "#ff9f43";
         }
@@ -180,11 +189,38 @@
             render();
         }
 
+        // NUEVO: Función para congelar y descargar el frame actual del canvas
+        function takeSnapshot() {
+            if (!canvas) return;
+            
+            // Convierte el estado gráfico actual del lienzo en una imagen JPG de alta calidad
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+            
+            const downloadLink = document.createElement("a");
+            downloadLink.href = dataUrl;
+            downloadLink.download = `Foto_Noir_VHS_${new Date().getTime()}.jpg`;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            
+            // Interrupción visual en el estado para confirmar la captura
+            const statusTextNode = document.getElementById('status-text');
+            const originalMessage = statusTextNode.innerText;
+            const originalColor = statusTextNode.style.color;
+            
+            statusTextNode.innerText = "📸 ¡INSTANTÁNEA REVELADA Y GUARDADA!";
+            statusTextNode.style.color = "#ffff00";
+            
+            setTimeout(() => {
+                statusTextNode.innerText = originalMessage;
+                statusTextNode.style.color = originalColor;
+            }, 1200);
+        }
+
         function setupAudioEngine() {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const audioSource = audioCtx.createMediaStreamSource(localStream);
 
-            // NUEVO: Nodo de control exclusivo para el volumen de tu micrófono
             micGainNode = audioCtx.createGain();
 
             hpFilter = audioCtx.createBiquadFilter();
@@ -206,10 +242,8 @@
             noiseGainNode = audioCtx.createGain();
             whiteNoise.start();
 
-            // NUEVO ENRUTAMIENTO: Micrófono -> Mute Node -> Filtros de Frecuencia AM/FM
             audioSource.connect(micGainNode);
             micGainNode.connect(hpFilter);
-            
             hpFilter.connect(lpFilter);
             lpFilter.connect(distortion);
             
@@ -228,15 +262,13 @@
             updateAudioParameters();
         }
 
-        // NUEVO: Función para alternar el silencio de la voz sin matar el siseo
         function toggleMute() {
             if (!audioCtx || !micGainNode) return;
             const state = document.getElementById('mic-toggle').value;
-            
             if (state === 'muted') {
-                micGainNode.gain.setValueAtTime(0, audioCtx.currentTime); // Cero volumen a la voz
+                micGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
             } else {
-                micGainNode.gain.setValueAtTime(1, audioCtx.currentTime); // Restaura volumen completo
+                micGainNode.gain.setValueAtTime(1, audioCtx.currentTime);
             }
         }
 
