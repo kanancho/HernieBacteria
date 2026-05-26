@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estudio VHS Pro & Obturador Fotográfico</title>
+    <title>Estudio VHS Pro Noir & Onda Media - Panel Superior Fix</title>
     <style>
         body { margin: 0; background: #111; color: #eee; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; padding: 15px; box-sizing: border-box; }
         .container { width: 100%; max-width: 500px; background: #1a1a22; border: 2px solid #2d2d3a; padding: 20px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); box-sizing: border-box; }
@@ -13,6 +13,21 @@
         video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; transform: scaleX(-1); opacity: 0.02; } 
         canvas { position: relative; width: 100%; height: auto; z-index: 2; display: block; transform: scaleX(-1); } 
         
+        /* CORRECCIÓN: Nuevo banner de estado y controles REUBICADOS arriba */
+        .status-banner { display: flex; align-items: center; justify-content: center; background: #0a0a0f; padding: 8px; border-radius: 4px; border: 1px dashed #444; margin: 10px 0; font-family: inherit; font-size: 11px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; color: #00ffcc; min-height: 25px; box-sizing: border-box; }
+        .status-text { text-align: center; flex-grow: 1; margin: 0; }
+        
+        /* Estilo mini y Noir para los botones de control arriba */
+        .btn-control { background: #141419; color: #a0a0b0; border: 1px dashed #444; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-family: inherit; font-size: inherit; font-weight: bold; transition: background 0.2s; margin: 0 4px; }
+        .btn-control:hover:not(:disabled) { background: #22222b; color: #fff; border-color: #777; }
+        .btn-control:disabled { color: #555; border-color: #333; cursor: not-allowed; }
+        
+        .btn-photo-mini { color: #00bcd4; }
+        .btn-rec-mini { color: #ff3b30; }
+        .btn-stop-mini { color: #ff3b30; border-color: #ff3b30; display: none; } /* Oculto por defecto */
+        .btn-stop-mini:hover:not(:disabled) { background: rgba(255, 59, 48, 0.2); }
+        
+        /* Reubicación y limpieza de controles inferiores */
         .control-group { margin: 12px 0; background: #22222b; padding: 10px; border-radius: 6px; border: 1px solid #2d2d3a; }
         label { display: block; font-size: 11px; text-transform: uppercase; margin-bottom: 6px; color: #a0a0b0; font-weight: bold; }
         select, input[type="range"] { width: 100%; background: #141419; color: #fff; border: 1px solid #444; padding: 8px; font-family: inherit; font-size: 13px; border-radius: 4px; box-sizing: border-box; outline: none; }
@@ -21,19 +36,14 @@
         .switch-container { display: flex; align-items: center; justify-content: space-between; }
         .switch-label { font-size: 11px; text-transform: uppercase; color: #a0a0b0; font-weight: bold; }
 
-        .status { text-align: center; background: #0a0a0f; padding: 10px; border-radius: 4px; font-size: 11px; color: #00ffcc; border: 1px solid #22222b; margin: 10px 0; font-weight: bold; letter-spacing: 1px; }
-        .buttons { display: flex; flex-direction: column; gap: 8px; }
+        .buttons { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; }
         button { width: 100%; padding: 12px; font-family: inherit; font-size: 13px; font-weight: bold; text-transform: uppercase; border: none; border-radius: 4px; cursor: pointer; }
         
-        .btn-init { background: #00bcd4; color: #fff; }
-        .btn-rec { background: #ff3b30; color: #fff; }
-        .btn-stop { background: #4caf50; color: #fff; }
+        .btn-init { background: #00bcd4; color: #fff; border: 1px solid #00bcd4; }
         
-        /* NUEVO: Diseño del botón obturador fotográfico */
-        .btn-photo { background: #ffffff; color: #111; box-shadow: 0 4px 10px rgba(255,255,255,0.1); }
-        .btn-photo:hover { background: #e5e5e5; }
+        /* Los botones masivos originales SE ELIMINAN de aquí */
         
-        button:disabled { background: #2d2d3a; color: #555; cursor: not-allowed; box-shadow: none; }
+        button:disabled { background: #2d2d3a; color: #555; cursor: not-allowed; }
         .note { font-size: 9px; color: #686878; text-align: center; margin-top: 12px; line-height: 1.4; }
     </style>
 </head>
@@ -47,7 +57,14 @@
             <canvas id="output-canvas"></canvas>
         </div>
 
-        <div class="status" id="status-text">SISTEMA APAGADO. INICIALIZA ENTORNO.</div>
+        <div class="status-banner" id="status-bar">
+            <button class="btn-control btn-photo-mini" id="photo-btn-mini" onclick="takeSnapshot()" disabled>📸 Foto</button>
+            
+            <div class="status-text" id="status-text">SISTEMA APAGADO. INICIALIZA ENTORNO.</div>
+            
+            <button class="btn-control btn-rec-mini" id="rec-btn-mini" onclick="startRecording()" disabled>🔴 Video</button>
+            <button class="btn-control btn-stop-mini" id="stop-btn-mini" onclick="stopRecording()" disabled>⏹️ Parar</button>
+        </div>
 
         <div class="control-group switch-container">
             <span class="switch-label">Captura de Voz</span>
@@ -80,12 +97,7 @@
 
         <div class="buttons">
             <button class="btn-init" id="init-btn" onclick="initHardware()">1. Encender Lente y Micro</button>
-            
-            <button class="btn-photo" id="photo-btn" onclick="takeSnapshot()" disabled>📸 Capturar Foto Analógica</button>
-            
-            <button class="btn-rec" id="rec-btn" onclick="startRecording()" disabled>2. Grabar en Cinta</button>
-            <button class="btn-stop" id="stop-btn" onclick="stopRecording()" disabled>3. Cortar y Exportar</button>
-        </div>
+            </div>
 
         <div class="note">⚠️ OBLIGATORIO: Conecta audífonos antes de iniciar para evitar acoples técnicos (feedback).</div>
     </div>
@@ -98,11 +110,17 @@
         let animationFrameId;
         let hpFilter, lpFilter, distortion, noiseGainNode, micGainNode;
 
+        // Actualizar referencias de botones mini Noir arriba
+        let photoBtnMini = document.getElementById('photo-btn-mini');
+        let recBtnMini = document.getElementById('rec-btn-mini');
+        let stopBtnMini = document.getElementById('stop-btn-mini');
+
         async function initHardware() {
             video = document.getElementById('input-video');
             canvas = document.getElementById('output-canvas');
             ctx = canvas.getContext('2d');
 
+            // Disparador cuando el flujo de video está oficialmente activo y corriendo
             video.addEventListener('playing', () => {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
@@ -132,8 +150,11 @@
             setupAudioEngine();
 
             document.getElementById('init-btn').disabled = true;
-            document.getElementById('rec-btn').disabled = false;
-            document.getElementById('photo-btn').disabled = false; // NUEVO: Habilitar obturador fotográfico
+            
+            // NUEVO: Habilitar los mini controles arriba
+            photoBtnMini.disabled = false;
+            recBtnMini.disabled = false;
+            
             document.getElementById('status-text').innerText = "CINTA REBOBINADA. SEÑAL EN VIVO.";
             document.getElementById('status-text').style.color = "#ff9f43";
         }
@@ -189,13 +210,9 @@
             render();
         }
 
-        // NUEVO: Función para congelar y descargar el frame actual del canvas
         function takeSnapshot() {
             if (!canvas) return;
-            
-            // Convierte el estado gráfico actual del lienzo en una imagen JPG de alta calidad
             const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
-            
             const downloadLink = document.createElement("a");
             downloadLink.href = dataUrl;
             downloadLink.download = `Foto_Noir_VHS_${new Date().getTime()}.jpg`;
@@ -203,17 +220,13 @@
             downloadLink.click();
             document.body.removeChild(downloadLink);
             
-            // Interrupción visual en el estado para confirmar la captura
             const statusTextNode = document.getElementById('status-text');
             const originalMessage = statusTextNode.innerText;
-            const originalColor = statusTextNode.style.color;
-            
-            statusTextNode.innerText = "📸 ¡INSTANTÁNEA REVELADA Y GUARDADA!";
+            statusTextNode.innerText = "📸 ¡PLACA REVELADA Y GUARDADA!";
             statusTextNode.style.color = "#ffff00";
-            
             setTimeout(() => {
                 statusTextNode.innerText = originalMessage;
-                statusTextNode.style.color = originalColor;
+                statusTextNode.style.color = "#ff9f43";
             }, 1200);
         }
 
@@ -310,18 +323,25 @@
 
             mediaRecorder.start();
 
-            document.getElementById('rec-btn').disabled = true;
-            document.getElementById('stop-btn').disabled = false;
+            // NUEVO: Ocultar Grabar y Mostrar Parar en el banner de control arriba
+            recBtnMini.style.display = 'none';
+            stopBtnMini.style.display = 'inline-block';
+            stopBtnMini.disabled = false;
+
             document.getElementById('status-text').innerText = "🔴 GRABANDO EN CASSETTE VHS...";
             document.getElementById('status-text').style.color = "#ff3b30";
         }
 
         function stopRecording() {
             mediaRecorder.stop();
-            document.getElementById('rec-btn').disabled = false;
-            document.getElementById('stop-btn').disabled = true;
-            document.getElementById('status-text').innerText = "PROCESANDO PANTALLA Y ENLACES...";
-            document.getElementById('status-text').style.color = "#00ffcc";
+            
+            // NUEVO: Ocultar Parar y Mostrar Grabar en el banner de control arriba
+            stopBtnMini.style.display = 'none';
+            stopBtnMini.disabled = true;
+            recBtnMini.style.display = 'inline-block';
+            
+            document.getElementById('status-text').innerText = "CINTA REBOBINADA. SEÑAL EN VIVO.";
+            document.getElementById('status-text').style.color = "#ff9f43";
         }
 
         function exportVhsFile() {
@@ -337,7 +357,6 @@
             setTimeout(() => {
                 document.body.removeChild(downloadLink);
                 URL.revokeObjectURL(url);
-                document.getElementById('status-text').innerText = "ARCHIVO DESCARGADO. DISPOSITIVO LISTO.";
             }, 150);
         }
     </script>
