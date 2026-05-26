@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estudio VHS Pro Noir - Panel Compacto Superior</title>
+    <title>Estudio VHS Pro Noir - Controles Derecha</title>
     <style>
         body { margin: 0; background: #111; color: #eee; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; padding: 15px; box-sizing: border-box; }
         .container { width: 100%; max-width: 500px; background: #1a1a22; border: 2px solid #2d2d3a; padding: 20px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); box-sizing: border-box; }
@@ -13,9 +13,10 @@
         video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; opacity: 0.02; } 
         canvas { position: relative; width: 100%; height: auto; z-index: 2; display: block; } 
         
-        /* Panel superior: Alineación compacta a la izquierda y estado a la derecha */
-        .status-banner { display: flex; align-items: center; justify-content: flex-start; background: #0a0a0f; padding: 6px 10px; border-radius: 4px; border: 1px dashed #444; margin: 10px 0; font-family: inherit; font-size: 11px; text-transform: uppercase; font-weight: bold; gap: 6px; box-sizing: border-box; min-height: 36px; }
-        .status-text { margin-left: auto; color: #ff9f43; letter-spacing: 1px; text-align: right; }
+        /* CORRECCIÓN: Distribución elástica separando extremos (Texto Izquierda | Botones Derecha) */
+        .status-banner { display: flex; align-items: center; justify-content: space-between; background: #0a0a0f; padding: 6px 10px; border-radius: 4px; border: 1px dashed #444; margin: 10px 0; font-family: inherit; font-size: 11px; text-transform: uppercase; font-weight: bold; box-sizing: border-box; min-height: 38px; }
+        .status-text { color: #ff9f43; letter-spacing: 1px; text-align: left; margin: 0; }
+        .controls-group { display: flex; items-center: center; gap: 6px; }
         
         /* Botones de control estilo Noir */
         .btn-control { background: #141419; color: #a0a0b0; border: 1px dashed #444; padding: 5px 9px; border-radius: 3px; cursor: pointer; font-family: inherit; font-size: inherit; font-weight: bold; transition: background 0.2s; margin: 0; }
@@ -27,7 +28,7 @@
         .btn-stop-mini { color: #ff3b30; border-color: #ff3b30; display: none; } 
         .btn-stop-mini:hover:not(:disabled) { background: rgba(255, 59, 48, 0.2); }
         
-        /* Botón de encendido integrado al grupo izquierdo */
+        /* Botón de encendido integrado en el grupo derecho */
         .btn-init { background: #00bcd4; color: #fff; border: 1px solid #00bcd4; }
         .btn-init.btn-control { border: 1px solid #00bcd4; }
         
@@ -53,12 +54,14 @@
         </div>
 
         <div class="status-banner" id="status-bar">
-            <button class="btn-init btn-control" id="init-btn-mini" onclick="initHardware()">Encender</button>
-            <button class="btn-control btn-photo-mini" id="photo-btn-mini" onclick="takeSnapshot()" disabled>📸 Foto</button>
-            <button class="btn-control btn-rec-mini" id="rec-btn-mini" onclick="startRecording()" disabled>🔴 Video</button>
-            <button class="btn-control btn-stop-mini" id="stop-btn-mini" onclick="stopRecording()" disabled>⏹️ Parar</button>
-            
             <div class="status-text" id="status-text">APAGADO</div>
+            
+            <div class="controls-group">
+                <button class="btn-init btn-control" id="init-btn-mini" onclick="initHardware()">Encender</button>
+                <button class="btn-control btn-photo-mini" id="photo-btn-mini" onclick="takeSnapshot()" disabled>📸 Foto</button>
+                <button class="btn-control btn-rec-mini" id="rec-btn-mini" onclick="startRecording()" disabled>🔴 Video</button>
+                <button class="btn-control btn-stop-mini" id="stop-btn-mini" onclick="stopRecording()" disabled>⏹️ Parar</button>
+            </div>
         </div>
 
         <div class="control-group">
@@ -109,6 +112,11 @@
         let animationFrameId;
         let hpFilter, lpFilter, distortion, noiseGainNode, micGainNode;
 
+        let photoBtnMini = document.getElementById('photo-btn-mini');
+        let recBtnMini = document.getElementById('rec-btn-mini');
+        let stopBtnMini = document.getElementById('stop-btn-mini');
+        let initBtnMini = document.getElementById('init-btn-mini');
+
         async function initHardware() {
             video = document.getElementById('input-video');
             canvas = document.getElementById('output-canvas');
@@ -148,7 +156,7 @@
         }
 
         function switchCameraLive() {
-            const isBarActive = !document.getElementById('init-btn-mini').disabled;
+            const isBarActive = !initBtnMini.disabled;
             if (isBarActive) return; 
             initHardware();
         }
@@ -156,19 +164,17 @@
         function executeConsoleActivation() {
             video.srcObject = localStream;
             
-            // BLINDAJE: Forzar encendido explícito del stream de forma inmediata
             video.play().catch(e => console.log("Play diferido activo:", e));
             
             setupAudioEngine();
             
-            document.getElementById('init-btn-mini').disabled = true;
-            document.getElementById('photo-btn-mini').disabled = false;
-            document.getElementById('rec-btn-mini').disabled = false;
+            initBtnMini.disabled = true;
+            photoBtnMini.disabled = false;
+            recBtnMini.disabled = false;
             
             document.getElementById('status-text').innerText = "SEÑAL VIVA";
             document.getElementById('status-text').style.color = "#ff9f43";
 
-            // Iniciar el ciclo de dibujo directo sin depender del evento 'playing'
             startVideoProcessingLoop();
         }
 
@@ -176,13 +182,11 @@
             if (animationFrameId) cancelAnimationFrame(animationFrameId);
 
             function render() {
-                // Validación continua: esperar a que el hardware entregue píxeles válidos
                 if (!video || video.paused || video.ended || video.readyState < 2) {
                     animationFrameId = requestAnimationFrame(render);
                     return;
                 }
 
-                // Ajustar el Canvas exactamente a las dimensiones que está entregando el lente
                 if (video.videoWidth > 0 && (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight)) {
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
@@ -252,11 +256,12 @@
             
             const statusTextNode = document.getElementById('status-text');
             const originalMessage = statusTextNode.innerText;
+            const originalColor = statusTextNode.style.color;
             statusTextNode.innerText = "CAPTURA OK";
             statusTextNode.style.color = "#ffff00";
             setTimeout(() => {
                 statusTextNode.innerText = originalMessage;
-                statusTextNode.style.color = "#ff9f43";
+                statusTextNode.style.color = originalColor;
             }, 1200);
         }
 
@@ -353,9 +358,9 @@
 
             mediaRecorder.start();
 
-            document.getElementById('rec-btn-mini').style.display = 'none';
-            document.getElementById('stop-btn-mini').style.display = 'inline-block';
-            document.getElementById('stop-btn-mini').disabled = false;
+            recBtnMini.style.display = 'none';
+            stopBtnMini.style.display = 'inline-block';
+            stopBtnMini.disabled = false;
 
             document.getElementById('camera-facing').disabled = true;
 
@@ -366,9 +371,9 @@
         function stopRecording() {
             mediaRecorder.stop();
             
-            document.getElementById('stop-btn-mini').style.display = 'none';
-            document.getElementById('stop-btn-mini').disabled = true;
-            document.getElementById('rec-btn-mini').style.display = 'inline-block';
+            stopBtnMini.style.display = 'none';
+            stopBtnMini.disabled = true;
+            recBtnMini.style.display = 'inline-block';
             
             document.getElementById('camera-facing').disabled = false; 
             
